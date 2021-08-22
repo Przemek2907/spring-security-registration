@@ -2,6 +2,7 @@ package com.baeldung.security;
 
 import com.baeldung.persistence.model.User;
 import com.baeldung.service.DeviceService;
+import groovy.util.logging.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,8 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component("myAuthenticationSuccessHandler")
 public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -83,16 +86,20 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
         boolean isUser = false;
         boolean isAdmin = false;
         boolean isManager = false;
-        final Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-        for (final GrantedAuthority grantedAuthority : authorities) {
-            if (grantedAuthority.getAuthority().equals("READ_PRIVILEGE")) {
-                isUser = true;
-            } else if (grantedAuthority.getAuthority().equals("WRITE_PRIVILEGE")) {
-                isAdmin = true;
-                isUser = false;
-                break;
-            }
+
+        List<String> grantedAuthorities = authentication.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        if (grantedAuthorities.contains("ROLE_USER")) {
+            isUser = true;
+        } else if (grantedAuthorities.contains("ROLE_MANAGER")) {
+            isManager = true;
+        } else if (grantedAuthorities.contains("ROLE_ADMIN")) {
+            isAdmin = true;
         }
+
         if (isUser) {
         	 String username;
              if (authentication.getPrincipal() instanceof User) {
@@ -103,10 +110,11 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
              }
 
             return "/homepage.html?user="+username;
-        } else if (isAdmin) {
-            return "/console";
         } else if (isManager) {
-            return "/manager";
+            return "/management";
+        }
+        else if (isAdmin) {
+            return "/console";
         } else {
             throw new IllegalStateException();
         }
